@@ -1,0 +1,5 @@
+rich == 13.5.1
+pynput == 1.7.6
+art == 6.0
+mysql-connector-python
+redis[hiredis]
