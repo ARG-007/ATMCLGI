@@ -5,6 +5,8 @@ from pynput.keyboard import Listener as KeyboardListener
 from rich import box
 from rich.table import Table
 
+from .utility import Updatable
+
 
 class Form:
     def __init__(self, name, callback, fields: List[str]):
