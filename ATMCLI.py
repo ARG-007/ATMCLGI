@@ -33,11 +33,14 @@ class ATMCLI(ATM):
         self.bankArt = {"art": "", "color": ""}
 
         self.keyboardListener = KeyboardListener(on_press=self.HandleInteraction)
+
         self.option = {
             "options": ["Login", "Withdraw", "Deposit", "Account"],
             "selected": 0,
             "render": "",
         }
+
+        self.history = []
 
         self.clockPanel: Panel = createPanel(
             Updatable(lambda: datetime.now().ctime()), box.HORIZONTALS, "yellow", "red"
@@ -76,6 +79,14 @@ class ATMCLI(ATM):
         self.mainLayout["BankDisplay"].update(self.bankArtPanel)
         self.mainLayout["Selection"].update(self.selectionPanel)
         self.mainLayout["Output"].update(Updatable(self.getFocusedPanel))
+        self.mainLayout["JARDIS"].update(
+            createPanel(
+                Updatable(lambda: "\n".join(self.history)),
+                alignment=("center", "bottom"),
+                box=box.DOUBLE_EDGE,
+                box_style="cyan",
+            )
+        )
 
         self.keyboardListener.start()
 
@@ -130,8 +141,10 @@ class ATMCLI(ATM):
                 match (name):
                     case "Login":
                         result = self.login(values["User"], int(values["PIN"]))
-                        if self.isAuthenticated:
-                            self.loginForm.setStatus("[bright_green]Logged IN!!")
+                        self.loginForm.setStatus("[bright_green]Logged IN!!")
+                        self.history.append(
+                            f"[spring_green2]Logged In As : [cyan]{result['Holder']}[/]"
+                        )
 
                     # I'm not gonna implement password checking for Withdraw, Deposit
 
@@ -139,9 +152,11 @@ class ATMCLI(ATM):
                     case "Withdraw":
                         result = self.withdraw(int(values["Amount"]))
                         self.withdrawForm.setStatus("[bright_green]Amount Withdrawn")
+                        self.history.append(f"> Withdrawn: [red]{values['Amount']}[/]")
                     case "Deposit":
                         result = self.deposit(int(values["Amount"]))
                         self.depositForm.setStatus("[bright_green]Amount Deposited")
+                        self.history.append(f"> Deposited: [purple]{values['Amount']}[/]")
 
         except Exception as e:
             if name == "Login":

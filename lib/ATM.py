@@ -62,7 +62,7 @@ class ATM:
 
         self.authenticateLogin(self.otp)
 
-        return self.otp
+        return self.currentUser
 
     def authenticateLogin(self, otp: int) -> bool:
         """
