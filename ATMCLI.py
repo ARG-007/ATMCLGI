@@ -13,7 +13,6 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-
 from lib.atm import ATM
 from lib.form import Form
 from lib.utility import Updatable, createPanel
