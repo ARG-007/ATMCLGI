@@ -8,6 +8,13 @@ from rich.table import Table
 from .utility import Updatable
 
 
+def createForm(name, callback, fields: List[str]):
+    """Factory method that creates a form and returns form object, along with handler"""
+    form: Form = Form(name,callback,fields)
+
+    return (form, form.keyHandler)
+
+
 class Form:
     def __init__(self, name, callback, fields: List[str]):
         self.name = name
@@ -31,6 +38,8 @@ class Form:
             self.form.add_row(i, Updatable(self.getFieldValue, i))
 
         self.focused = 0
+
+
 
     @property
     def focused(self):

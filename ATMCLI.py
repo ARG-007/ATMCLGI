@@ -13,8 +13,9 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+
 from lib.atm import ATM
-from lib.form import Form
+from lib.form import createForm
 from lib.utility import Updatable, createPanel
 
 Available_Colors = list(ANSI_COLOR_NAMES.keys())
@@ -51,25 +52,20 @@ class ATMCLI(ATM):
             Updatable(lambda: self.option["render"]), box.ASCII2, "green", "grey62"
         )
 
-        self.loginForm = Form("Login", self.formHandler, ["User", "PIN"])
-        self.withdrawForm = Form("Withdraw", self.formHandler, ["Amount", "PIN"])
-        self.depositForm = Form("Deposit", self.formHandler, ["Amount", "PIN"])
-        self.pinForm = Form("OTP", self.formHandler, ["OTP"])
+        self.outputPanel = createPanel(Updatable(self.getFocusedPanel))
 
-        self.loginPanel = createPanel(self.loginForm)
-        self.withdrawPanel = createPanel(self.withdrawForm)
-        self.depositPanel = createPanel(self.depositForm)
-        self.transactionPanel = createPanel(Updatable(self.getTransactionList))
-        self.goAwayPanel = createPanel("You Must Login To View This")
+        from collections import namedtuple
 
-        self.forms: List[Form] = [self.loginForm, self.withdrawForm, self.depositForm]
+        Output = namedtuple("Output", "form handler")
 
-        self.outputMap: List[Panel] = [
-            self.loginPanel,
-            self.withdrawPanel,
-            self.depositPanel,
-            self.transactionPanel,
+        self.outputs: List[Output] = [
+            Output(*createForm("Login", self.formHandler, ["User", "PIN"])),
+            Output(*createForm("Withdraw", self.formHandler, ["Amount", "PIN"])),
+            Output(*createForm("Deposit", self.formHandler, ["Amount", "PIN"])),
+            Output(Updatable(self.getTransactionList), self.HandleInteraction),
         ]
+
+        self.goAwayString = "You Must Login To View This"
 
         self.mainLayout["Moto"].update(
             createPanel("Your Eternal Dept Is One Transaction Away!")
@@ -77,7 +73,7 @@ class ATMCLI(ATM):
         self.mainLayout["TimeStamp"].update(self.clockPanel)
         self.mainLayout["BankDisplay"].update(self.bankArtPanel)
         self.mainLayout["Selection"].update(self.selectionPanel)
-        self.mainLayout["Output"].update(Updatable(self.getFocusedPanel))
+        self.mainLayout["Output"].update(self.outputPanel)
         self.mainLayout["JARDIS"].update(
             createPanel(
                 Updatable(lambda: "\n".join(self.history)),
@@ -91,9 +87,9 @@ class ATMCLI(ATM):
 
     def getFocusedPanel(self):
         if self.isAuthenticated or (self.option["selected"] == 0):
-            return self.outputMap[self.option["selected"]]
+            return self.outputs[self.option["selected"]].form
         else:
-            return self.goAwayPanel
+            return self.goAwayString
 
     def updateRender(self):
         selected = self.option["selected"]
@@ -110,22 +106,21 @@ class ATMCLI(ATM):
     def HandleInteraction(self, key: Key):
         match (key):
             case Key.up:
-                self.option["selected"] = (self.option["selected"] - 1) % 4
+                self.option["selected"] = (self.option["selected"] - 1) % len(self.outputs)
                 self.updateRender()
 
             case Key.down:
-                self.option["selected"] = (self.option["selected"] + 1) % 4
+                self.option["selected"] = (self.option["selected"] + 1) % len(self.outputs)
                 self.updateRender()
 
             case Key.enter:
-                if self.option["selected"] == 3:
-                    return
-                self.keyboardListener.on_press = self.forms[
+                self.keyboardListener.on_press = self.outputs[
                     self.option["selected"]
-                ].keyHandler
+                ].handler
 
     def getTransactionList(self) -> list[dict]:
         transactTable = Table("TID", "Time", "Type", "Amount", "Balance")
+
         for i in super().getTransactionList()[::-1]:
             transactTable.add_row(*map(str, i))
         return transactTable
@@ -140,30 +135,26 @@ class ATMCLI(ATM):
                 match (name):
                     case "Login":
                         result = self.login(values["User"], int(values["PIN"]))
-                        self.loginForm.setStatus("[bright_green]Logged IN!!")
+                        self.outputs[0].form.setStatus("[bright_green]Logged IN!!")
                         self.history.append(
                             f"[spring_green2]Logged In As : [cyan]{result['Holder']}[/]"
                         )
 
                     # I'm not gonna implement password checking for Withdraw, Deposit
-
                     # Gotta stick with the moto
                     case "Withdraw":
                         result = self.withdraw(int(values["Amount"]))
-                        self.withdrawForm.setStatus("[bright_green]Amount Withdrawn")
+                        self.outputs[1].form.setStatus("[bright_green]Amount Withdrawn")
                         self.history.append(f"> Withdrawn: [red]{values['Amount']}[/]")
                     case "Deposit":
                         result = self.deposit(int(values["Amount"]))
-                        self.depositForm.setStatus("[bright_green]Amount Deposited")
-                        self.history.append(f"> Deposited: [purple]{values['Amount']}[/]")
+                        self.output[2].form.setStatus("[bright_green]Amount Deposited")
+                        self.history.append(
+                            f"> Deposited: [purple]{values['Amount']}[/]"
+                        )
 
         except Exception as e:
-            if name == "Login":
-                self.loginForm.setStatus(str(e))
-            if name == "Withdraw":
-                self.withdrawForm.setStatus(str(e))
-            if name == "Deposit":
-                self.depositForm.setStatus(str(e))
+            self.outputs[self.option["selected"]].form.setStatus(e)
         else:
             pass
 
